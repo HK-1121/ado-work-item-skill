@@ -1,6 +1,6 @@
 ---
 name: ado-work-item
-description: 读取并分析 Azure DevOps 工作项（LD-23175 / LD-ECCMS），覆盖本体、评论、关联链接、附件截图。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
+description: 读取并分析 Azure DevOps 工作项，覆盖本体、评论、关联链接、附件截图。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
 metadata:
   origin: LD-23175
 ---
@@ -26,7 +26,18 @@ metadata:
 
 ## 读取流程
 
-组织固定 `LD-23175`，项目固定 `LD-ECCMS`。用户只给编号（如「读 4447」）时按这两个默认值走。
+### 输入解析
+
+- 用户只给编号（如「读 4447」）→ 用下面「本仓库默认值」里的组织和项目
+- 用户给了 URL → 以 URL 里的 org / project 为准，忽略默认值
+- 用户点名了别的组织或项目 → 以用户为准
+
+### 本仓库默认值（部署者按自己团队改这两行）
+
+| 项 | 值 |
+|---|---|
+| 组织 | `LD-23175` |
+| 项目 | `LD-ECCMS` |
 
 ```
 1. 本体 + 关联：wit_work_item  action=get  id=<ID>  project="LD-ECCMS"  expand="All"

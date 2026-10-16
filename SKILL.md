@@ -2,7 +2,7 @@
 name: ado-work-item
 description: 读取并分析 Azure DevOps 工作项，覆盖本体、评论、关联链接、附件截图。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
 metadata:
-  origin: LD-23175
+  origin: ado-work-item-skill
 ---
 
 # Azure DevOps 工作项读取与分析
@@ -28,22 +28,20 @@ metadata:
 
 ### 输入解析
 
-- 用户只给编号（如「读 4447」）→ 用下面「本仓库默认值」里的组织和项目
-- 用户给了 URL → 以 URL 里的 org / project 为准，忽略默认值
-- 用户点名了别的组织或项目 → 以用户为准
+按这个优先级确定组织和项目，**不要猜**：
 
-### 本仓库默认值（部署者按自己团队改这两行）
+1. 用户给了 URL → 用 URL 里的 org 和 project
+2. 用户点名了组织或项目 → 用用户说的
+3. 否则读同目录的 `SKILL.local.md`（安装脚本生成的本机文件，不入库，形如 `organization: xxx` / `project: yyy`）
+4. 都没有 → 问用户，问清楚再读
 
-| 项 | 值 |
-|---|---|
-| 组织 | `LD-23175` |
-| 项目 | `LD-ECCMS` |
+组织名只影响 MCP 服务连哪个 org；项目名在每次调用时传。
 
 ```
-1. 本体 + 关联：wit_work_item  action=get  id=<ID>  project="LD-ECCMS"  expand="All"
+1. 本体 + 关联：wit_work_item  action=get  id=<ID>  project="<项目>"  expand="All"
    - expand="All" 才会带上 relations（关联项、提交、PR、附件）
    - expand 与 fields 互斥：只要特定字段时才用 fields
-2. 评论：wit_work_item  action=list_comments  workItemId=<ID>  project="LD-ECCMS"
+2. 评论：wit_work_item  action=list_comments  workItemId=<ID>  project="<项目>"
 3. 历史（需要时）：action=list_revisions
 4. 附件：从 relations 里找 AttachedFile（URL 形如 .../_apis/wit/attachments/<GUID>），
    用 wit_work_item_attachment  attachmentId=<GUID>  savePath="tmp" 下载后看图

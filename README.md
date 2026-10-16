@@ -37,27 +37,27 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 
 ### 方式一：AI 安装（推荐）
 
-把下面这段**原样发给你的 AI**，剩下的它自己会做——它只需要问你两件事：组织名、skill 挂在哪。
+把下面这段**原样发给你的 AI**。它会先自检哪些已经装过、哪些还需要下载，只问你两件事：组织名、skill 挂哪。
 
 ```text
-请帮我安装 ado-work-item skill。
-仓库：https://github.com/HaydenSmith1121/ado-work-item-skill
+请帮我安装 ado-work-item skill。仓库：https://github.com/HaydenSmith1121/ado-work-item-skill
 
-按顺序做：
-1. 先读仓库里的 README.md 和 SKILL.md，搞清楚这个 skill 做什么、要装什么。
-2. 把仓库克隆到一个固定目录：先问我想放哪；我没意见就放在项目仓库之外的独立目录，别塞进我正在做的项目里。
-3. 运行 scripts/install.ps1：
-   - -Organization 用我给你的组织名（先问我一次）
-   - -SkillsDir 用我要挂 skill 的目录（先问我一次）
-   它会预装 @azure-devops/mcp、写 MCP 配置、把 skill 挂成链接；可以重复执行。
-4. 装完告诉我，然后让我自己在终端跑一次 scripts/set-ado-pat.ps1 输入 PAT。
-   不要让我把 PAT 贴进对话，也不要替我输入 PAT。
-5. 最后告诉我：要重启哪个客户端、用哪句话验证装好了。
+按这个顺序做：
+1. 先读仓库里的 README.md 和 SKILL.md，弄清它做什么。
+2. 把仓库克隆到一个固定目录（先问我想放哪；没意见就放在我正在做的项目之外）。记下这个绝对路径，后面都用它。
+3. 先做一次预检，把结果读给我听：
+   pwsh -File <克隆目录>\scripts\install.ps1 -Check
+   它会报 MCP 包在不在、客户端配置有没有、PAT 写没写、skill 挂没挂；已经完成的不要重复做。
+4. 问我两件事：Azure DevOps 组织名、skill 要挂到哪个目录。然后正式安装：
+   pwsh -File <克隆目录>\scripts\install.ps1 -Organization <组织名> -Project <默认项目名> -SkillsDir <skills 目录>
+5. 装完自己验证三条并告诉我结果：配置文件里有 [mcp_servers.azure-devops]、MCP 入口文件存在、skill 链接指向克隆目录。
+6. 最后让我自己在终端跑一次 <克隆目录>\scripts\set-ado-pat.ps1 输入 PAT，并告诉我重启哪个客户端、用哪句话验证。
 
 约束：
-- 组织名和 PAT 归我，你只要问一次组织名，别自己猜。
-- 不要改动配置里其它 MCP 服务的段落。
-- 动手前先把要执行的命令和要写的路径列给我确认。
+- 路径一律用我这台机器的真实值（$env:USERPROFILE 之类），**不要照抄任何示例路径**——示例里的路径不是我的。
+- 组织名、项目名、PAT 都是我的：组织名和项目名问我一次，PAT 只让我自己输，不要让我贴进对话。
+- 只动 azure-devops 这一段配置，其它 MCP 服务的内容不要碰。
+- 动手前把要执行的命令列给我确认一次。
 ```
 
 ### 方式二：一键脚本
@@ -65,18 +65,21 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 Windows / PowerShell 7；macOS、Linux 装了 pwsh 也能跑。三步，可重复执行：
 
 ```powershell
-git clone https://github.com/HaydenSmith1121/ado-work-item-skill.git D:\harness\ado-work-item-skill
+git clone https://github.com/HaydenSmith1121/ado-work-item-skill.git <克隆目录>
 
-pwsh -File D:\harness\ado-work-item-skill\scripts\install.ps1 `
+pwsh -File <克隆目录>\scripts\install.ps1 -Check          # 先看现状，不改任何东西
+
+pwsh -File <克隆目录>\scripts\install.ps1 `
   -Organization <你的组织名> `
+  -Project <默认项目名> `
   -SkillsDir "<你要挂 skill 的工作区>\.agents\skills"
 
-pwsh -File D:\harness\ado-work-item-skill\scripts\set-ado-pat.ps1
+pwsh -File <克隆目录>\scripts\set-ado-pat.ps1
 ```
 
-第一步装公共的部分（MCP 包 + 配置结构 + skill 链接），第二步提示你粘贴 PAT，输入不回显。写完重启客户端生效。
+`-Check` 只报告不改动；正式那步装公共的部分（MCP 包 + 配置 + skill 链接 + 本机默认值），已完成的会跳过；最后一步提示你粘贴 PAT，输入不回显。写完重启客户端生效。
 
-`install.ps1` 的其它开关：`-SkipSkillLink`（只配 MCP 不挂 skill）、`-SkipMcpInstall`（包已装好）、`-Domains`（默认 `core work work-items repositories`）、`-ConfigPath` / `-McpRoot`（换路径）。
+`install.ps1` 的其它开关：`-SkipSkillLink`（只配 MCP 不挂 skill）、`-SkipMcpInstall`（包已装好，跳过下载）、`-Domains`（默认 `core work work-items repositories`）、`-ConfigPath` / `-McpRoot`（换路径）。macOS / Linux 上挂载改用符号链接，脚本自己判断。
 
 ### 方式三：手动安装
 
@@ -96,9 +99,11 @@ npm install --prefix "$env:USERPROFILE\.codex\ado-mcp" @azure-devops/mcp --omit=
 ```toml
 [mcp_servers.azure-devops]
 command = "node"
-args = ["C:\\Users\\<你>\\.codex\\ado-mcp\\node_modules\\@azure-devops\\mcp\\dist\\index.js", "<你的组织名>", "--domains", "core", "work", "work-items", "repositories", "--authentication", "pat"]
+args = ["<MCP_ROOT>\\node_modules\\@azure-devops\\mcp\\dist\\index.js", "<你的组织名>", "--domains", "core", "work", "work-items", "repositories", "--authentication", "pat"]
 startup_timeout_sec = 60
 ```
+
+`<MCP_ROOT>` 就是上一步 `npm install --prefix` 用的那个目录：Windows 默认 `%USERPROFILE%\.codex\ado-mcp`，macOS / Linux 默认 `~/.codex/ado-mcp`。不想手算，就让 `install.ps1` 直接写。
 
 **3. 挂 skill**（Windows 用 junction，别复制文件，复制会出现两份不同步的）
 
@@ -136,4 +141,4 @@ claude mcp add --transport stdio azure-devops -- npx -y @azure-devops/mcp <你�
 
 比如 `读工作项 4447`，或者直接贴工作项链接。skill 会依次取本体、评论、关联链接、附件，再给结论。
 
-默认组织和项目写在 `SKILL.md` 顶部那张表里（本仓库预置 `LD-23175` / `LD-ECCMS`）；换了团队就改那两行，或者每次直接给 URL——URL 里的 org / project 优先级更高。
+默认组织和项目**不存在仓库里**：安装时由 `-Organization` / `-Project` 写进本机的 `SKILL.local.md`，这个文件在 `.gitignore` 里，不会提交、也不会跟着仓库跑到别人机器上。没生成过就跟 AI 说一句组织名和项目名，或者直接贴工作项 URL——URL 里的 org / project 优先级最高。

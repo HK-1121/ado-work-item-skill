@@ -51,11 +51,11 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 4. 问我两件事：Azure DevOps 组织名、skill 要挂到哪个目录。然后正式安装：
    pwsh -File <克隆目录>\scripts\install.ps1 -Organization <组织名> -Project <默认项目名> -SkillsDir <skills 目录>
 5. 装完自己验证三条并告诉我结果：配置文件里有 [mcp_servers.azure-devops]、MCP 入口文件存在、skill 链接指向克隆目录。
-6. 最后让我自己在终端跑一次 <克隆目录>\scripts\set-ado-pat.ps1 输入 PAT，并告诉我重启哪个客户端、用哪句话验证。
+6. 最后告诉我：先让我去 Azure DevOps 点复制 PAT，再让我自己在终端跑一次 <克隆目录>\scripts\set-ado-pat.ps1——它从剪贴板读、联网校验，会把结果打给我。然后告诉我重启哪个客户端、用哪句话验证。
 
 约束：
 - 路径一律用我这台机器的真实值（$env:USERPROFILE 之类），**不要照抄任何示例路径**——示例里的路径不是我的。
-- 组织名、项目名、PAT 都是我的：组织名和项目名问我一次，PAT 只让我自己输，不要让我贴进对话。
+- 组织名、项目名、PAT 都是我的：组织名和项目名问我一次；PAT 只让我自己复制到剪贴板并亲手跑脚本，不要让我贴进对话，也不要替我跑那一步。
 - 只动 azure-devops 这一段配置，其它 MCP 服务的内容不要碰。
 - 动手前把要执行的命令列给我确认一次。
 ```
@@ -74,10 +74,11 @@ pwsh -File <克隆目录>\scripts\install.ps1 `
   -Project <默认项目名> `
   -SkillsDir "<你要挂 skill 的工作区>\.agents\skills"
 
+# 先在浏览器里点 PAT 的复制按钮，再跑这行（脚本从剪贴板读，并联网校验）
 pwsh -File <克隆目录>\scripts\set-ado-pat.ps1
 ```
 
-`-Check` 只报告不改动；正式那步装公共的部分（MCP 包 + 配置 + skill 链接 + 本机默认值），已完成的会跳过；最后一步提示你粘贴 PAT，输入不回显。写完重启客户端生效。
+`-Check` 只报告不改动；正式那步装公共的部分（MCP 包 + 配置 + skill 链接 + 本机默认值），已完成的会跳过；最后一步从剪贴板取 PAT 并联网校验，成功会打 `[成功]`。写完重启客户端生效。
 
 `install.ps1` 的其它开关：`-SkipSkillLink`（只配 MCP 不挂 skill）、`-SkipMcpInstall`（包已装好，跳过下载）、`-Domains`（默认 `core work work-items repositories`）、`-ConfigPath` / `-McpRoot`（换路径）。macOS / Linux 上挂载改用符号链接，脚本自己判断。
 
@@ -119,7 +120,11 @@ New-Item -ItemType Junction -Path "<工作区>\.agents\skills\ado-work-item" -Ta
 pwsh -File <仓库目录>\scripts\set-ado-pat.ps1
 ```
 
+**PAT 怎么交给脚本**：默认从**剪贴板**读——在 ADO 页面上点复制按钮，然后跑脚本，**不用往终端里粘**（终端的安全输入提示符粘 PAT 容易丢字符，也看不出成没成）。脚本会打印长度和首尾各 4 位让你核对，写完还会真的调一次 `dev.azure.com/<org>/_apis/projects` 验证：`200` 才算通，`401` 是无效或过期，`403` 是 scope 不够。
+
 脚本把 token 编码成 `base64(":" + PAT)` 写进 `[mcp_servers.azure-devops.env]` 的 `PERSONAL_ACCESS_TOKEN`，只覆盖不追加。
+
+其它可用开关：`-Prompt`（确实想用终端粘贴）、`-TokenFile <路径>`（从文件读，读完自动删文件）、`-NoVerify`（跳过联网校验）、`-Force`（已有 PAT 时不再提示）。
 
 > **同一个邮箱可能是两个身份。** 微软账号里「个人」和「企业/学校」即使邮箱相同也是两个身份，权限常常只给其中一个。用错身份会报 `TF400813: The user '<GUID>' is not authorized`，换另一个身份重新生成 PAT 即可。
 

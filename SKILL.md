@@ -68,8 +68,8 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| `TF400813: The user '<GUID>' is not authorized` | 认证用了企业账号，它在组织里是另一个身份 | 用个人账号的 PAT，重跑 `scripts/setup-ado-pat.ps1` |
-| `PERSONAL_ACCESS_TOKEN is not set` | 配置里没有 env 表 | 同上 |
+| `TF400813: The user '<GUID>' is not authorized` | 认证用了企业账号，它在组织里是另一个身份 | 用个人账号的 PAT，重跑 `scripts/set-ado-pat.ps1` |
+| `PERSONAL_ACCESS_TOKEN is not set` | 配置里没有 env 表 | 跑 `scripts/set-ado-pat.ps1`：默认从剪贴板读 PAT，写完会联网校验 |
 | MCP `connection closed: initialize response` | 服务用 `npx` 现拉包时写不了 npm 缓存 | 预装到固定目录，配置里直接用 node 指向入口（见 README） |
 | 附件返回一长串 base64 | 没给 `savePath` | 加 `savePath="tmp"` 落盘再看 |
 

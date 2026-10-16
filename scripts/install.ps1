@@ -193,7 +193,8 @@ if (Test-HasPat) {
     Write-Host 'PAT 已存在，直接重启客户端即可。' -ForegroundColor Green
 }
 else {
-    Write-Host '还差一步（密钥只能本人输）：' -ForegroundColor Yellow
+    Write-Host '还差一步（密钥只能本人给）：' -ForegroundColor Yellow
+    Write-Host '  1. 在 Azure DevOps 里复制 PAT'
     Write-Host "  pwsh -File `"$PSScriptRoot\set-ado-pat.ps1`" -ConfigPath `"$ConfigPath`""
-    Write-Host '  粘贴 PAT 后重启客户端生效。'
+    Write-Host '  脚本从剪贴板取 PAT、联网校验，成功会打 [成功]；然后重启客户端。'
 }

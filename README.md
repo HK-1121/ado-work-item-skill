@@ -40,7 +40,7 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 把下面这段**原样发给你的 AI**。它会先自检哪些已经装过、哪些还需要下载，只问你两件事：组织名、skill 挂哪。
 
 ```text
-请帮我安装 ado-work-item skill。仓库：https://github.com/HaydenSmith1121/ado-work-item-skill
+请帮我安装 ado-work-item skill。仓库：https://github.com/HK-1121/ado-work-item-skill
 
 按这个顺序做：
 1. 先读仓库里的 README.md 和 SKILL.md，弄清它做什么。
@@ -65,7 +65,7 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 Windows / PowerShell 7；macOS、Linux 装了 pwsh 也能跑。三步，可重复执行：
 
 ```powershell
-git clone https://github.com/HaydenSmith1121/ado-work-item-skill.git <克隆目录>
+git clone https://github.com/HK-1121/ado-work-item-skill.git <克隆目录>
 
 pwsh -File <克隆目录>\scripts\install.ps1 -Check          # 先看现状，不改任何东西
 

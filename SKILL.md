@@ -70,8 +70,8 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 【test date】：2026/10/21
 【sit test result】：pass
 【description】：
-1. ESD 信最后一页空白页已删除，预览页数与正文一致
-2. Team D 地址 4 行完整，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 不再折行
+1.ESD 信最后一页空白页已删除，预览页数与正文一致
+2.Team D 地址 4 行完整，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 不再折行
 ```
 
 失败/部分通过时，条目里写清期望与实际（下面第 1 条没修好、第 2 条修好了，整体判 fail）：
@@ -80,8 +80,8 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 【test date】：2026/10/21
 【sit test result】：fail
 【description】：
-1. 无 CC 的 ESD 预览仍是 2 页，第 2 页只有左下角 ESD (12/2024)，期望 1 页
-2. Team D 地址已修复，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 完整一行
+1.无 CC 的 ESD 预览仍是 2 页，第 2 页只有左下角 ESD (12/2024)，期望 1 页
+2.Team D 地址已修复，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 完整一行
 ```
 
 规则：
@@ -89,7 +89,7 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 - **标签固定三个**：`【test date】：`、`【sit test result】：`、`【description】：`。全角冒号紧跟，标签后不空行；标签字面保持英文原样，值按页面原文（英文就英文）
 - **日期** `yyyy/MM/dd`，写实测当天，不写建单日、不写计划复测日
 - **结果只用四个词**：`pass` / `fail` / `partial` / `blocked`。不写「基本通过」「已修复」「待确认」这类糊词
-- **每条 description = 一个可判定的验证点**，写「看到什么」而不是「点了什么」；`1.` 顶格、编号连续、中文标点
+- **每条 description = 一个可判定的验证点**，写「看到什么」而不是「点了什么」；`1.` 顶格、编号连续、**编号后不留空格**（照 4353 原文写 `1.ESD…`，不要写成 `1. ESD…`）、中文标点
 - **失败条目**补「期望 …，实际 …」，有错码就带错码原文（如 `ERR-00000`），不翻译、不归纳
 - **纯文本**：不用 Markdown 表格、`**加粗**`、反引号、代码块、链接语法——ADO 评论按纯文本渲染，这些符号会原样露出来
 - **只写外部可见信息**：库表名、SQL、commit、模板路径、SIT 账号密码一律不进评论
@@ -122,8 +122,8 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 【test date】：2026/10/21
 【sit test result】：pass
 【description】：
-1. …
-2. …
+1.…
+2.…
 
 截图（按顺序贴，打开文件 Ctrl+C）：
 01 output/<ID>/comment-01-xxx.png —— 覆盖 1–3（SIT 现场）
@@ -231,6 +231,7 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 | 评论粘进 ADO 后 Markdown 符号（`**`、反引号、表格竖线）原样露出 | 用了 Markdown | 评论只写纯文本 |
 | 评论和截图对不上号 | 把 `NN` 当成条目号，而一图多条 / 一条多图 | `NN` 用粘贴顺序，清单里写清覆盖哪几条 |
 | 回复里贴了 `![截图](路径)` | 想"让人看得到" | 会话里的图复制不了，只给文件路径 |
+| 评论里写成 `1. xxx`（数字后带空格） | 照 Markdown 列表习惯写 | 团队格式是 `1.xxx`，编号后不留空格 |
 | 评论里出现表名 / SQL / commit | 把报告内容混进了评论 | 内部信息只进报告 |
 | 验到一半没数据/没权限，直接写「未实测」收尾 | 把卡点当结论 | 按「卡点」一节先定位、再问、再解决 |
 

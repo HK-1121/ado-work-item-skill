@@ -28,8 +28,8 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 【test date】：2026/10/21
 【sit test result】：pass
 【description】：
-1. ESD 信最后一页空白页已删除，预览页数与正文一致
-2. Team D 地址 4 行完整，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 不再折行
+1.ESD 信最后一页空白页已删除，预览页数与正文一致
+2.Team D 地址 4 行完整，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 不再折行
 ```
 
 2. **分析报告**——固定四段（**初始是什么问题 → 看完评论/修订现在是什么问题 → 怎么操作才能验证 → 需要造数据时怎么在页面里造**），每个结论后面跟截图 / PDF / SQL / commit，有卡点再加「卡点与处置」；结论在前，证据在后，不倒原始 JSON。

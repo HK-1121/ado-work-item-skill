@@ -38,6 +38,17 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 
 **交付时只给路径，不往对话里贴图。** 会话里渲染出来的截图复制不了、下载不了，用户还得再截一次才能粘进 ADO；正确的给法是 `NN → 文件路径 → 覆盖哪几条` 的清单，用户打开 `output/<ID>/comment-NN-*.png` 直接 `Ctrl+C`。
 
+图多的时候不用手工排序号，`scripts/pack-comment.mjs` 按 manifest 一次打包并检查漏配：
+
+```powershell
+node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run   # 先看计划
+node scripts/pack-comment.mjs --manifest tmp\pack-4489.json             # 落到 output/<ID>/comment-NN-*.png
+```
+
+manifest 就是 `{ id, text?, items: [{ src, name, covers: [条目号] }] }`，顺序即粘贴顺序；
+脚本会补零编号、拦 0 字节源文件、列出「条目 N 没有配图」。
+
+
 适用场景：看某个 bug/issue 到底在说什么、追一条工作项的历史结论、判断某个问题是新系统还是老系统的问题、把分析结果写成能直接粘进 DevOps 的评论、把一批工作项批量过一遍。
 
 ## 安装

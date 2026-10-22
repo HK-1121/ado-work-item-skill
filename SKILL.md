@@ -104,6 +104,35 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 - 贴的顺序：先粘文字 → 光标放到对应条目下方 → 逐张 `Ctrl+V`；别把多张截图拼成一张
 - 顺手落一份 `output/<ID>/comment.txt`（只放评论正文），省得反复复制
 
+### 打包：一条命令把跑批产物变成 `comment-NN-*.png`
+
+手上有图、顺序和覆盖关系清楚时，别手工 `Copy-Item` 数序号（4489 就重排过两轮），用脚本：
+
+```powershell
+node scripts/pack-comment.mjs --manifest tmp\pack-4489.json            # 复制 + 打印「图 → 覆盖哪几条」
+node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run  # 先看计划，不落盘
+```
+
+```json
+{
+  "id": "4489",
+  "text": "output/4489/comment.txt",
+  "items": [
+    { "src": "output/playwright/sit/<跑批>/a.png", "name": "dg12-imr1-check", "covers": [3] },
+    { "src": "output/playwright/sit/<跑批>/b.png", "name": "dg12-imr1-chinese", "covers": [3] }
+  ]
+}
+```
+
+脚本按 `items` 顺序补零编号写成 `output/<ID>/comment-NN-<name>.png`，并检查：源文件在不在、是不是 0 字节、
+`1..最大条目号` 有没有漏配图、有没有图没标 `covers`。漏了会直接列出来，贴到 ADO 前先按提示补齐。
+
+**PDF 的图不要用预览弹窗截图**：无头浏览器里弹窗内嵌的 PDF 是 `<iframe>`，截出来只有一片灰白
+（4489 复测时 `*-preview.png` 全空白，只能重跑）。先下载 PDF，再用
+`python flows/sit/tools/pdf-pages.py <pdf> --page 1 --out output/<ID>` 渲染整页 PNG，把这张当 `src`。
+信类页面尤其要看这一张——正文语言、页脚版本号都在上面。
+
+
 ### 怎么把结果交出去：只给路径，不往对话里贴图
 
 **这是硬规则：交付回复里不出现 `![...](...)`，也不把截图内嵌到对话。**
@@ -230,6 +259,7 @@ Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_d
 | 附件返回一长串 base64 | 没给 `savePath` | 加 `savePath="tmp"` 落盘再看 |
 | 评论粘进 ADO 后 Markdown 符号（`**`、反引号、表格竖线）原样露出 | 用了 Markdown | 评论只写纯文本 |
 | 评论和截图对不上号 | 把 `NN` 当成条目号，而一图多条 / 一条多图 | `NN` 用粘贴顺序，清单里写清覆盖哪几条 |
+| 评论配图整片灰白 | 截的是预览弹窗里 `<iframe>` 的 PDF，无头浏览器渲染不出内容 | 下载 PDF 后用 `pdf-pages.py` 出整页 PNG，再交给 `pack-comment.mjs` |
 | 回复里贴了 `![截图](路径)` | 想"让人看得到" | 会话里的图复制不了，只给文件路径 |
 | 评论里写成 `1. xxx`（数字后带空格） | 照 Markdown 列表习惯写 | 团队格式是 `1.xxx`，编号后不留空格 |
 | 评论里出现表名 / SQL / commit | 把报告内容混进了评论 | 内部信息只进报告 |

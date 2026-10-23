@@ -1,6 +1,6 @@
 ---
 name: ado-work-item
-description: 读取并分析 Azure DevOps 工作项（本体、评论、关联链接、附件截图），交付两份成果：① 可整段粘贴进 DevOps 评论区的测试结论（【test date】/【sit test result】/【description】+ 每条 `---√`/`---×`/`---?` 标记 + 圈注了问题的截图），② 图文一一对应、每条结论紧跟截图的 Markdown 分析报告。分析途中遇到卡点先定位、先问、先解决，不绕过。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
+description: 读取并分析 Azure DevOps 工作项（本体、评论、关联链接、附件截图），交付两份成果：① 可整段粘贴进 DevOps 评论区的测试结论（【test time】/【sit test result】/【description】+ 每条 `---√`/`---×`/`---?` 标记 + 圈注了问题的截图），② 图文一一对应、每条结论紧跟截图的 Markdown 分析报告。分析途中遇到卡点先定位、先问、先解决，不绕过。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
 metadata:
   origin: ado-work-item-skill
 ---
@@ -127,10 +127,10 @@ node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节�
 
 ### 产物一：可直接粘贴的 DevOps 评论
 
-格式照抄工作项 4353 的评论——标签、全角冒号、编号都不要改。粘的位置是工作项 **Discussion 里的评论框**（不是 Description 字段），贴完文字再按条目逐张 `Ctrl+V` 贴图：
+格式照抄工作项 4353 的评论——全角冒号、`1.xxx` 编号、标签顺序都不改；只有日期那一栏按新口径改成 `【test time】` 并带上时分（4353 当时只写了日期，现在补上几点几分）。粘的位置是工作项 **Discussion 里的评论框**（不是 Description 字段），贴完文字再按条目逐张 `Ctrl+V` 贴图：
 
 ```text
-【test date】：2026/10/21
+【test time】：2026/10/21 10:40
 【sit test result】：pass
 【description】：
 1.ESD 信最后一页空白页已删除，预览页数与正文一致
@@ -142,7 +142,7 @@ node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节�
 失败/部分通过时，条目里写清期望与实际（下面第 1 条没修好、第 2 条修好了，整体判 fail）：
 
 ```text
-【test date】：2026/10/21
+【test time】：2026/10/21 14:05
 【sit test result】：fail
 【description】：
 1.无 CC 的 ESD 预览仍是 2 页，第 2 页只有左下角 ESD (12/2024)，期望 1 页
@@ -153,8 +153,8 @@ node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节�
 
 规则：
 
-- **标签固定三个**：`【test date】：`、`【sit test result】：`、`【description】：`。全角冒号紧跟，标签后不空行；标签字面保持英文原样，值按页面原文（英文就英文）
-- **日期** `yyyy/MM/dd`，写实测当天，不写建单日、不写计划复测日
+- **标签固定三个**：`【test time】：`、`【sit test result】：`、`【description】：`。全角冒号紧跟，标签后不空行；标签字面保持英文原样，值按页面原文（英文就英文）
+- **时间** `yyyy/MM/dd HH:mm`，24 小时制、补零（如 `2026/10/23 15:20`）。写**实测那一刻**，不写建单日、不写计划复测日；跨天复测就写实际跑的那天。只写日期不带时分会让人分不清是上午还是下午跑的，别省
 - **结果只用四个词**：`pass` / `fail` / `partial` / `blocked`。不写「基本通过」「已修复」「待确认」这类糊词
 - **每条 description = 一个可判定的验证点**，写「看到什么」而不是「点了什么」；`1.` 顶格、编号连续、**编号后不留空格**（照 4353 原文写 `1.ESD…`，不要写成 `1. ESD…`）、中文标点
 - **按「现象」写，不按「机制」写**：报障人和开发看的是屏幕上的结果，不是你脑子里的渲染原理。看到的字被切掉就写「显示不全 / 被截断」，不要写「换行 / 折行 / 自动换行」——换行是原因，截断才是现象。
@@ -179,7 +179,7 @@ node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节�
 每条 description 的正文下面，**单独一行**写标记，顶格、`---` 后面不留空格。整段看着是这样（2026/10/23 那条就是范本）：
 
 ```text
-【test date】：2026/10/23
+【test time】：2026/10/23 15:20
 【sit test result】：partial
 【description】：
 1.From 栏公司名整行显示 Occupational Medicine Unit (Kowloon) / Occupational Medicine Unit (Hong Kong)
@@ -314,7 +314,7 @@ spec 长这样（坐标是**原图像素**，`box` 是 `[x, y, 宽, 高]`）：
 样子大概是这样：
 
 ```text
-【test date】：2026/10/21
+【test time】：2026/10/21 10:40
 【sit test result】：pass
 【description】：
 1.…
@@ -461,6 +461,7 @@ spec 长这样（坐标是**原图像素**，`box` 是 `[x, y, 宽, 高]`）：
 | 评论一条写了三四行、塞满案号和错码 | 想把过程都交代清楚 | 一条一句、先说结果；过程与错码进报告，评论只留「过了没有」 |
 | 把业务前置校验（板未评定、缺诊断、未录判伤）当成本单的缺陷 | 那些是出证的正常业务条件，单子说的是显示 | 按业务把前置补齐再点 Check；补不齐就写明卡在哪个前置，别写成"本单不通过" |
 | 评论里写成 `--- √`（带空格），报告里只剩一根横线 | Markdown 把 `---` 当分隔线 | `---` 后不留空格，紧贴 `√` / `×` / `?` |
+| `【test time】` 只写了 `2026/10/23` 或 `15:20` | 省事，或者从旧模板抄的 | 写全 `yyyy/MM/dd HH:mm`，别人要拿它定位复测时间 |
 | 逐条全是 `√`，整体却写 `partial` | 逐条标记和整体结论没对齐 | 先看原报障点修没修，再按「整体结果怎么定」那张表填 |
 | 对比两张图分开贴，读者来回切 | 忘了拼 | `annotate.py --compare` 拼成一张，左旧右新 |
 | 圈压在数字上，原值反而看不清 | 标注盖住了证据 | 框画外侧、批注放空白处，宁可先局部裁图再标 |
@@ -486,7 +487,7 @@ spec 长这样（坐标是**原图像素**，`box` 是 `[x, y, 宽, 高]`）：
 ## 交付前自检（60 秒）
 
 - 评论块能整段粘贴，粘完一个字都不用改
-- 三个标签齐全、日期是今天、结果词在 `pass` / `fail` / `partial` / `blocked` 里
+- 三个标签齐全（`【test time】`/`【sit test result】`/`【description】`）、时间是 `yyyy/MM/dd HH:mm` 且写的是实测那一刻、结果词在 `pass` / `fail` / `partial` / `blocked` 里
 - **每条正文下面都有 `---√` / `---×` / `---?`**，`---` 后没有空格；整体结果和逐条标记不打架
 - **每条 description 都是「屏幕上看到的现象」**，没有把机制（换行/合并/渲染）当现象写
 - **每条 description 读起来像人说的**：不重复同一句式、不堆术语、不空泛

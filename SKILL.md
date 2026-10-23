@@ -53,13 +53,48 @@ ECCMS 的发布链路是**先上 SIT，SIT 验过推 IPT，IPT 验过再推 UAT*
    - expand 与 fields 互斥：只要特定字段时才用 fields
 2. 评论：wit_work_item  action=list_comments  workItemId=<ID>  project="<项目>"
 3. 历史（需要时）：action=list_revisions
-4. 附件：从 relations 里找 AttachedFile（URL 形如 .../_apis/wit/attachments/<GUID>），
-   用 wit_work_item_attachment  attachmentId=<GUID>  savePath="tmp" 下载后看图
+4. 附件：**三种来源都要抓**（relations 的 AttachedFile + 描述/评论里的内联 `<img>` + 正文点名的文件名），
+   用 wit_work_item_attachment  attachmentId=<GUID>  savePath="tmp" 下载后逐个打开看 —— 见「附件必须全部看完」
 ```
 
 Codex 里工具名带前缀：`mcp__azure_devops__wit_work_item`、`mcp__azure_devops__wit_work_item_attachment`。Claude Code 里是 `mcp__azure-devops__wit_work_item`。
 
 批量查：`action=get_batch`，`ids=[...]`。查「分配给我的」：`action=my`。
+
+## 附件必须全部看完
+
+**有附件就全部看完，一份不落；漏一份就等于没读这个单子。** 这条是硬要求，不是"有时间再看"。
+
+三种来源都要抓，漏一类就漏附件：
+
+| 来源 | 怎么找 | 常见漏法 |
+|---|---|---|
+| `relations` 里的 `AttachedFile` | `action=get expand=All`，URL 形如 `.../_apis/wit/attachments/<GUID>` | 只取了第一条、剩下的没点 |
+| 描述 / 评论 HTML 里内联的 `<img src=...>` | 直接在描述和每条评论的 HTML 里抓 `_apis/wit/attachments/<GUID>` | 以为「relations 没有就没有附件」（4467、4328 都在这上面栽过） |
+| 正文里点了名的文件 | 描述/评论文字里出现 `*.xls / *.xlsx / *.pdf / *.png / *.docx` | 看到文件名就当看过 |
+
+一次落全再逐个点开（有 `ado-wit.mjs` 这类兜底脚本就用它的 `attachments <id>` 子命令，它会连描述/评论里的内联图一起抓；没有就用 MCP 逐条下载后自己数份数）：
+
+```powershell
+node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节数」，份数要和工作项里看到的一致
+```
+
+**每一份都要真的打开，按类型看**：
+
+| 类型 | 看什么 | 怎么看 |
+|---|---|---|
+| png / jpg | 红框圈的是哪一格、弹窗文案、字段值、页码、哪份文件 | 直接看图 |
+| pdf | 渲染成整页 PNG 再看版面：页数、标题块、列宽、字号、有没有空白页 | `python flows/sit/tools/pdf-pages.py <pdf> --page 1` |
+| xls / xlsx | 读结构：表头与列顺序、列宽、行高、字号、单元格类型（文本还是数字）、数字格式、合并区、Total 行 | `openpyxl`（`.xls` 先转 xlsx）或 Excel COM |
+| docx / zip / log | 解压或读文本，别只看大小 | — |
+
+**把附件当判据，不当背景。** 同一单里经常成对出现「样板（正确）」和「现状（有问题）」。报告里要逐份写清它是什么、给了什么判据，一句就够，例如：
+
+> `ECDADMIN_MI79R_sample.xls` —— 格式样板；从里面拿到 20 列表头顺序、行高 12.75、Day Lost 是文本
+
+**别拿转换副本下结论**（4328 踩过）：`.xls` 转成 `.xlsx` 再量，列宽会因默认字体和单位换算走样。要判"和样板一致/不一致"，就用原始文件量（Excel 直接打开读 `Columns.Width`，或读文件里存的字符宽度）。
+
+**结论要能对账**：附件数 == 报告里点过名的附件数；每份都有一句话说明看到了什么；没有一份只看了文件名或大小。
 
 ## 定位修复：工单号搜不到不等于没修
 
@@ -294,11 +329,15 @@ node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run  # 先看�
 | `PERSONAL_ACCESS_TOKEN is not set` | 配置里没有 env 表 | 跑 `scripts/set-ado-pat.ps1`：默认从剪贴板读 PAT，写完会联网校验 |
 | MCP `connection closed: initialize response` | 服务用 `npx` 现拉包时写不了 npm 缓存 | 预装到固定目录，配置里直接用 node 指向入口（见 README） |
 | 附件返回一长串 base64 | 没给 `savePath` | 加 `savePath="tmp"` 落盘再看 |
+| 附件只看 `relations` 里的，描述/评论里的内联图没看 | 以为内联图不算附件 | 用 `attachments` 那类兜底命令一次落全（或 MCP 逐条下载），再按「序号」核对份数 |
+| `.xls` / `.pdf` 只看文件名或大小就写结论 | 把附件当背景资料 | 每份都要打开；报告里逐份写一句「我从里面拿到了什么」，见「附件必须全部看完」 |
+| 拿 `.xls` 转出来的副本量列宽/字体，说「跟样板一致」 | 转换会改默认字体与单位（4328 踩过：转换副本 5.72 字符，原件其实是 6.14，与输出逐位相同） | 判一致/不一致要用原始文件量（Excel 直接读 `Columns.Width`，或读文件里存的字符宽度） |
 | 评论粘进 ADO 后 Markdown 符号（`**`、反引号、表格竖线）原样露出 | 用了 Markdown | 评论只写纯文本 |
 | 评论和截图对不上号 | 把 `NN` 当成条目号，而一图多条 / 一条多图 | `NN` 用粘贴顺序，清单里写清覆盖哪几条 |
 | 评论配图整片灰白 | 截的是预览弹窗里 `<iframe>` 的 PDF，无头浏览器常常渲染不出内容（DG12 在 2026-10-22 实测能拍到，别当铁律） | 下载 PDF 后用 `pdf-pages.py` 出整页 PNG，再交给 `pack-comment.mjs`；判语言优先抽 PDF 文本 |
 | `git log --grep=<工单号>` 0 命中就判「没修」 | 修复被塞进别的工单的 commit（4488 藏在 `FIX(4501)` 里） | 用 `git log -L <起>,<止>:<文件>` 看那几行的改动历史，或按改状态/写根因的时间反查；见「定位修复」一节 |
-| 只看修复后一次结果就判 pass | 分不清「本来就对」和「改对了」 | 留修复前的记录，并至少跑一正一反两个样本；两个方向同时反转才算部署生效 || 回复里贴了 `![截图](路径)` | 想"让人看得到" | 会话里的图复制不了，只给文件路径 |
+| 只看修复后一次结果就判 pass | 分不清「本来就对」和「改对了」 | 留修复前的记录，并至少跑一正一反两个样本；两个方向同时反转才算部署生效 |
+| 回复里贴了 `![截图](路径)` | 想"让人看得到" | 会话里的图复制不了，只给文件路径 |
 | 评论里写成 `1. xxx`（数字后带空格） | 照 Markdown 列表习惯写 | 团队格式是 `1.xxx`，编号后不留空格 |
 | 评论里出现表名 / SQL / commit | 把报告内容混进了评论 | 内部信息只进报告 |
 | 截图里「看出问题」的形态和现场不一样 | 截了编辑态 / 拉宽列 / 渲染副本才有的样子（4485：把 xlsx 转 PDF 截「标题折两行」，现场其实只看到日期被截断） | 只截打开就看到的原样；补充证据（双击、编辑栏）单独说明 |
@@ -313,6 +352,7 @@ node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run  # 先看�
 
 - 不要因为 MCP 不可用就直接换浏览器读——先报错给用户，让他决定
 - 不要跳过评论和附件就下结论
+- **不要漏附件**：有附件就必须每份打开看完（含描述/评论里的内联图），只看文件名或大小等于没看
 - **不要只凭评论说「已处理」就认定已修复**——要去环境里实测
 - **不要用改数据库代替在页面造测试数据**
 - 不要把报告整段倒进评论；评论里不写「应该没问题」「看起来修好了」这类模糊判断
@@ -328,5 +368,6 @@ node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run  # 先看�
 - 每条 description 至少有对应截图，清单里能查到「图 → 覆盖哪几条」
 - **截图是「打开/选中就看到」的原样**，不是双击、拉宽、渲染副本才有的形态（补充图已在清单里注明）
 - 交付回复里**没有内嵌图片**，截图一律给文件路径
+- **附件份数 == 报告里点过名的份数**，每份都有一句「从里面拿到了什么」，没有只看了文件名的
 - 报告四段齐全；有卡点就有「卡点与处置」，且写清了结论
 - 报告里每个判断后面跟的是截图/PDF/SQL/commit，不是「评论说」

@@ -1,6 +1,6 @@
 ---
 name: ado-work-item
-description: 读取并分析 Azure DevOps 工作项（本体、评论、关联链接、附件截图），交付两份成果：① 可整段粘贴进 DevOps 评论区的测试结论（【test time】/【sit test result】/【description】+ 每条 `---√`/`---×`/`---?` 标记 + 圈注了问题的截图），② 图文一一对应、每条结论紧跟截图的 Markdown 分析报告。分析途中遇到卡点先定位、先问、先解决，不绕过。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".
+description: '读取并分析 Azure DevOps 工作项（本体、评论、关联链接、附件截图），交付两份成果：① 可整段粘贴进 DevOps 评论区的测试结论（【test time】/【sit test result】/【description】+ 每条 `---√`/`---×`/`---?` 标记 + 圈注了问题的截图），② 图文一一对应、每条结论紧跟截图的 Markdown 分析报告。分析途中遇到卡点先定位、先问、先解决，不绕过。当用户提到工作项、bug、issue、ADO、DevOps，或给出工作项编号/链接要求查看、分析、总结时使用。Trigger on: "work item", "bug", "issue", "read ADO 4447", "看下 4447".'
 metadata:
   origin: ado-work-item-skill
 ---

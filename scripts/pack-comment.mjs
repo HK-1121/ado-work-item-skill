@@ -105,6 +105,38 @@ if (manifest.text) {
   }
 }
 
+// ---- 图号核对（正文里的 （图N） 必须和 comment-NN 对得上）--------------------
+// 规则见 SKILL.md「每条末尾标图号」：N = 粘贴顺序 = 文件名 comment-NN 的 NN。
+const figureReport = [];
+if (manifest.text) {
+  const textSrc = resolve(String(manifest.text));
+  if (existsSync(textSrc)) {
+    const text = readFileSync(textSrc, 'utf8');
+    const refs = new Set();
+    for (const m of text.matchAll(/（图([0-9]+(?:[、,，]图?[0-9]+)*)）/g)) {
+      for (const n of m[1].split(/[、,，]|图/)) {
+        const num = Number(String(n).trim());
+        if (Number.isFinite(num) && num > 0) refs.add(num);
+      }
+    }
+    const maxFig = Math.max(0, ...refs);
+    const haveFig = new Set(copied.map((row) => Number(row.nn)));
+    const missingFiles = [...refs].filter((n) => !haveFig.has(n)).sort((a, b) => a - b);
+    const noRef = [...haveFig].filter((n) => !refs.has(n)).sort((a, b) => a - b);
+    if (missingFiles.length) problems.push(`正文引用了不存在的图：${missingFiles.map((n) => `图${n}`).join('、')}`);
+    if (noRef.length) problems.push(`这些图正文里没写图号：${noRef.map((n) => `图${n}`).join('、')}`);
+    if (maxFig && refs.size) {
+      const gaps = [];
+      for (let i = 1; i <= maxFig; i += 1) if (!refs.has(i)) gaps.push(i);
+      if (gaps.length) figureReport.push(`图号不连续，缺 ${gaps.join('、')}`);
+    }
+    const items = text.split(/\r?\n/).filter((line) => /^\d+\./.test(line));
+    const noFigItems = items.filter((line) => !/（图[0-9]/.test(line));
+    if (noFigItems.length) figureReport.push(`有 ${noFigItems.length} 条正文没写图号（如：${noFigItems[0].slice(0, 40)}）`);
+    figureReport.unshift(`正文引用图号：${[...refs].sort((a, b) => a - b).map((n) => `图${n}`).join('、') || '(无)'}`);
+  }
+}
+
 // ---- 报告 ------------------------------------------------------------------
 
 const rel = (p) => p.replace(`${process.cwd()}\\`, '').replaceAll('\\', '/');
@@ -122,6 +154,11 @@ const missing = [];
 for (let i = 1; i <= maxItem; i += 1) if (!covered.has(i)) missing.push(i);
 if (missing.length) problems.push(`评论条目 ${missing.join('、')} 没有配图`);
 if (copied.some((row) => !row.covers.length)) problems.push('有图没标 covers，贴进 ADO 时说不清证明哪条');
+
+if (figureReport.length) {
+  console.log('\n图号核对：');
+  for (const line of figureReport) console.log(`  ${line}`);
+}
 
 if (problems.length) {
   console.log('\n待处理：');

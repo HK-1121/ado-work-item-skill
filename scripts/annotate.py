@@ -9,6 +9,11 @@
     python scripts/annotate.py --spec tmp/anno-4507.json
     python scripts/annotate.py --info output/4507/raw.png
     python scripts/annotate.py --compare old.png new.png --labels "标准版" "实际版" --out out.png
+    python scripts/annotate.py --stamp in.png --out out.png --figure 3     # 只烤「图3」水印
+
+水印：working 评论图必须在角上标「图N」（N = comment-NN 的 NN），否则读者在 ADO 里
+看到一张孤图，不知道对应正文哪一条。`pack-comment.mjs` 打包时默认自动调用本脚本烤水印；
+spec 里写 `"figure": 3` 也会在出图最后一步烤上。
 
 spec（JSON）：
 {
@@ -40,6 +45,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 RED = (222, 20, 40)
 DARK_RED = (190, 0, 20)
+BADGE_BG = (198, 22, 40)
 YELLOW = (255, 212, 0)
 DARK = (24, 24, 24)
 WHITE = (255, 255, 255)
@@ -112,6 +118,57 @@ def draw_badge(draw, center, label, font, radius):
     draw.text((cx - width / 2, cy - height / 2 - radius * 0.08), label, font=font, fill=DARK)
 
 
+def stamp_figure(image, figure, corner="tl", opacity=255):
+    """在图上加一条窄标签带，写死「图N」（N = 粘贴顺序 = comment-NN 的 NN）。
+
+    为什么加带子而不是直接压在画面上：截图左上角经常就是标题、案号、报错原文，
+    压上去正好把证据盖住。这里在原图上方（或下方）接一条白底标签带，图号永远看得见、
+    原图一个像素都不动。评论里的图是分开上传的，读者看不到文件名，图号只能在图上。
+    """
+    label = str(figure).strip()
+    if not label:
+        raise SystemExit("stamp 的 figure 不能为空")
+    if not label.lower().startswith("图"):
+        label = "图" + label
+    img = image.convert("RGB")
+    width, height = img.size
+    font_size = int(clamp(round(min(width, height) / 22), 26, 64))
+    font = load_font(font_size)
+    probe = ImageDraw.Draw(img)
+    bbox = probe.textbbox((0, 0), label, font=font)
+    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    pad_x = int(font_size * 0.55)
+    pad_y = int(font_size * 0.30)
+    badge_w, badge_h = text_w + pad_x * 2, text_h + pad_y * 2
+    strip_h = badge_h + 16
+    gap = 10
+    corner = (corner or "tl").lower()
+    at_top = "t" in corner
+    at_left = "l" in corner
+
+    canvas = Image.new("RGB", (width, height + strip_h), WHITE)
+    canvas.paste(img, (0, strip_h if at_top else 0))
+    draw = ImageDraw.Draw(canvas)
+    band_y = 0 if at_top else height
+    draw.rectangle([0, band_y, width, band_y + strip_h], fill=WHITE)
+    draw.line([0, band_y + strip_h - 1, width, band_y + strip_h - 1], fill=SEPARATOR, width=2)
+    x = gap if at_left else width - badge_w - gap
+    y = band_y + (strip_h - badge_h) // 2
+    draw.rounded_rectangle(
+        [x, y, x + badge_w, y + badge_h],
+        radius=int(badge_h * 0.30),
+        fill=BADGE_BG,
+        outline=BADGE_BG,
+    )
+    draw.text(
+        (x + pad_x - bbox[0], y + pad_y - bbox[1]),
+        label,
+        font=font,
+        fill=(255, 255, 255),
+    )
+    return canvas
+
+
 def draw_arrow(draw, start, end, line_width):
     """直线 + 实心箭头。"""
     x1, y1 = start
@@ -146,9 +203,11 @@ def apply_mark(img, mark):
     """在一张图上按 spec 画一个标记。坐标是这张图自己的像素。"""
     draw = ImageDraw.Draw(img)
     width, height = img.size
-    base = max(2, int(min(width, height) / 140))
-    line_width = int(mark.get("width") or max(3, base * 2))
-    font_size = int(mark.get("size") or max(18, int(min(width, height) / 26)))
+    # 线宽按最短边缩放但**压得很克制**：早先 min/140*2 在 1310×1853 的 PDF 渲染页上算出
+    # 18px，一个 40px 高的框直接被红线糊住、里面的金额看不清（2026-10-26 工作项 4410 现场）。
+    # 现在 2–6px，且在 rect/ellipse 上再按框高封顶（框越扁线越细），保证框内文字始终可读。
+    line_width = int(mark.get("width") or clamp(round(min(width, height) / 400), 2, 6))
+    font_size = int(mark.get("size") or clamp(round(min(width, height) / 40), 14, 34))
     font = load_font(font_size, mark.get("font"))
     shape = str(mark.get("shape") or "rect").lower()
 
@@ -156,12 +215,14 @@ def apply_mark(img, mark):
         box = [int(float(v)) for v in mark["box"]]
         x, y, w, h = box
         x2, y2 = x + w, y + h
+        # 扁框（框高 < 80px）再收一档，避免线宽吃掉文字的行高
+        stroke = int(mark.get("width") or min(line_width, max(2, h // 12)))
         if shape in ("ellipse", "circle"):
-            draw.ellipse([x, y, x2, y2], outline=RED, width=line_width)
+            draw.ellipse([x, y, x2, y2], outline=RED, width=stroke)
         else:
-            draw.rectangle([x, y, x2, y2], outline=RED, width=line_width)
+            draw.rectangle([x, y, x2, y2], outline=RED, width=stroke)
         if mark.get("label"):
-            radius = max(16, font_size // 2 + 6)
+            radius = max(12, font_size // 2 + 4)
             # 编号默认放框外侧；给了 label_at 就按给的坐标放
             center = (
                 tuple(mark["label_at"])
@@ -304,6 +365,8 @@ def build(spec):
     result = compose(images, labels, layout, int(spec.get("gap", 24)))
     if spec.get("note"):
         result = append_note(result, str(spec["note"]))
+    if str(spec.get("figure") or "").strip():
+        result = stamp_figure(result, spec["figure"], str(spec.get("figure_corner") or "tl"))
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     result.save(out_path)
@@ -336,7 +399,22 @@ def main(argv=None):
     parser.add_argument("--compare", nargs=2, metavar=("LEFT", "RIGHT"), help="两张对比图")
     parser.add_argument("--labels", nargs="*", help="对比图两边的标签")
     parser.add_argument("--layout", choices=("side", "stack"), default="side")
+    parser.add_argument("--stamp", metavar="PNG", help="只烤「图N」水印：配合 --out、--figure")
+    parser.add_argument("--figure", help="图号，如 3 或 图3（烤水印用）")
+    parser.add_argument("--corner", choices=("tl", "tr", "bl", "br"), default="tl", help="水印放哪个角，默认左上")
     args = parser.parse_args(argv)
+
+    if args.stamp:
+        if not args.out:
+            raise SystemExit("--stamp 要配 --out")
+        if not str(args.figure or "").strip():
+            raise SystemExit("--stamp 要配 --figure（图几）")
+        image = load_image(args.stamp)
+        image = stamp_figure(image, args.figure, args.corner)
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        image.save(args.out)
+        print(f"已写入: {args.out}  ({image.width}x{image.height})  水印=图{str(args.figure).lstrip('图')}")
+        return 0
 
     if args.info:
         for path in args.info:
@@ -366,6 +444,9 @@ def main(argv=None):
     else:
         parser.print_help()
         return 2
+
+    if args.figure:
+        spec["figure"] = args.figure
 
     out, size = build(spec)
     print(f"已写入: {out}  ({size[0]}x{size[1]})")

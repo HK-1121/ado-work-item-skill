@@ -1,8 +1,8 @@
 # ado-work-item
 
-在 AI 编码助手（Codex / Claude Code）里读取并分析 Azure DevOps 工作项：**本体、评论、关联链接、附件截图**四块一起看，然后给出结论和证据。
+在 AI 编码助手（Codex / Claude Code）里读取并分析 Azure DevOps 工作项：**本体、评论、关联链接、附件截图**四块一起看，测试做完把结论**直接发到工作项 Discussion**。
 
-边界是**只读 + 分析**。改状态、加评论、建链接不在能力范围内；真要写，也先人工确认。
+写操作只开一项：**发评论**（`scripts/ado-comment.mjs`）。pass 只发文字、不配图；fail / partial / blocked 附失败截图，每张图带「图N」水印。**不改状态、不 @ 任何人、不建/转 bug。**
 
 ## 三条硬规矩
 
@@ -32,19 +32,26 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 
 分析完交两份东西，缺一不可：
 
-1. **可整段粘贴的 DevOps 评论**——落 `output/<ID>/comment.txt`（纯文本，不写 `comment.md`）：`【test time】` / `【sit test result】` / `【description】` 三个标签 + 编号条目 + **每条末尾的图号 `（图N）`**，和 4353 的评论同一格式（标签改用 `【test time】`、值带时分），粘完不用改一个字：
+1. **发到工作项的评论**——正文落 `output/<ID>/comment.txt`（纯文本，不写 `comment.md`）：`【test time】` / `【sit test result】` / `【description】` 三个标签 + 编号条目 + **失败条目的图号 `（图N）`**，和 4353 的评论同一格式（标签改用 `【test time】`、值带时分）。写完跑脚本发，不用人粘贴：
 
-```text
-【test time】：2026/10/21 10:40
-【sit test result】：pass
-【description】：
-1.ESD 信最后一页空白页已删除，预览页数与正文一致（图1）
----√
-2.Team D 地址 4 行完整，Rooms 05-06, 23/F, KOLOUR Tsuen Wan I 不再折行（图2）
----√
+```powershell
+node scripts/ado-comment.mjs --id 4431              # 发（自动查重、pass 不传图、fail 传失败截图）
+node scripts/ado-comment.mjs --id 4431 --dry-run    # 只校验，不发
 ```
 
-图号就是贴图顺序、也是文件名 `comment-NN` 的 NN：`（图2）` ↔ `comment-02-*.png`，多张写 `（图1、图2）`。一条配一张、一张证明多条时每条都写同一个号；写完用 `scripts/pack-comment.mjs` 会自动核对「正文图号 ↔ 文件」。
+评论长这样（pass 时**不带任何图号、不传图**；fail 只给 `---×` 配图）：
+
+```text
+【test time】：2026/10/30 11:32
+【sit test result】：partial
+【description】：
+1.新造 02- 案 02-2026-01239（P.I.% 5）出 F.7 后，CP05 自己多出一行 E330，Auto Gen. 是 Y
+---√
+2.memo 标题还是 Submission of G. . 330(R)，G.F. 的 F 没印出来（图1）
+---×
+```
+
+图号就是上传顺序、也是文件名 `comment-NN` 的 NN：`（图1）` ↔ `comment-01-*.png`，多张写 `（图1、图2）`。**每张图在打包时自动烤「图N」水印**（白底标签带，不盖原图），读者在 ADO 里看不到文件名也能对上正文。写完用 `scripts/pack-comment.mjs` 打包，它会自动烤水印并核对「正文图号 ↔ 文件」。
 
 结果标记是照着 2026/10/23 那条评论定的：`---√` 通过、`---×` 不通过、`---?` 不确定（要业务确认、只验了一半、环境卡住）。时间写 `yyyy/MM/dd HH:mm`（24 小时制、补零），写实测那一刻，不写建单日。`---` 后面不留空格——留了空格 Markdown 会把它当分隔线，报告里字就没了。整体结果仍只填 `pass` / `fail` / `partial` / `blocked`，规则是「原报障点修没修」，不是数 `×` 的个数。
 
@@ -54,30 +61,31 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 
 **在哪儿验**：链路是 **SIT → IPT → UAT**，先上 SIT，SIT 验过推 IPT，IPT 验过再推 UAT。所以单子上写 `GCIS PP (UAT)` 也照样在 **SIT** 上验，SIT 就是第一站；两边数据不一样、案号对不上是正常的，按同样的业务形状造等价数据验同一段逻辑，不要写「SIT 没有这案，得去 UAT 看」。
 
-**交付时只给路径，不往对话里贴图。** 会话里渲染出来的截图复制不了、下载不了，用户还得再截一次才能粘进 ADO；正确的给法是 `NN → 文件路径 → 覆盖哪几条` 的清单，用户打开 `output/<ID>/comment-NN-*.png` 直接 `Ctrl+C`。
+**交付时只给链接和路径，不往对话里贴图。** 评论已经发进 ADO，回复里给「工作项链接 + 评论 id + 结果词 + 本地底稿路径」就行；会话里渲染出来的截图复制不了、下载不了，贴了也用不上。
 
-图多的时候不用手工排序号，`scripts/pack-comment.mjs` 按 manifest 一次打包并检查漏配：
+图多的时候不用手工排序号，`scripts/pack-comment.mjs` 按 manifest 一次打包、烤水印并检查漏配：
 
 ```powershell
 node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run   # 先看计划
 node scripts/pack-comment.mjs --manifest tmp\pack-4489.json             # 落到 output/<ID>/comment-NN-*.png
 ```
 
-manifest 就是 `{ id, text?, items: [{ src, name, covers: [条目号] }] }`，顺序即粘贴顺序；
-脚本会补零编号、拦 0 字节源文件、列出「条目 N 没有配图」，并从 `text` 里读 `（图N）` 核对：引用不存在的图、图号跳号、条目没写图号都会报出来。
+manifest 就是 `{ id, text?, items: [{ src, name, covers: [条目号] }] }`，顺序即上传顺序；
+脚本会补零编号、调 `annotate.py --stamp` 给每张图烤「图N」水印、拦 0 字节源文件、列出「条目 N 没有配图」，并从 `text` 里读 `（图N）` 核对：引用不存在的图、图号跳号、条目没写图号都会报出来。**pass 评论 `items` 留空**（不打包图），非 pass 只放失败截图。
 
 图上的红框、编号、批注和左右对比用 `scripts/annotate.py` 画（只依赖 Pillow，`python -m pip install pillow`）。对比图固定左旧右新、两边带标签，只拼两张：
 
 ```powershell
 python scripts/annotate.py --info tmp\raw.png                    # 先看尺寸，方便定坐标
 python scripts/annotate.py --spec tmp\anno-4507.json             # 框 + 编号 ① + 批注
+python scripts/annotate.py --stamp old.png --out new.png --figure 3   # 补烤「图3」水印
 python scripts/annotate.py --compare old.png new.png --labels "标准版（老系统）" "实际版（SIT）" --out output\4507\comment-01-cmp.png
 ```
 
 spec 的字段（`sources` / `marks` / `shape`）见 `SKILL.md` 的「标注与对比拼图」一节。
 
 
-适用场景：看某个 bug/issue 到底在说什么、追一条工作项的历史结论、判断某个问题是新系统还是老系统的问题、把分析结果写成能直接粘进 DevOps 的评论、把一批工作项批量过一遍。
+适用场景：看某个 bug/issue 到底在说什么、追一条工作项的历史结论、判断某个问题是新系统还是老系统的问题、测试完把结论直接发回工作项、把一批工作项批量过一遍。
 
 ## 安装
 
@@ -134,6 +142,8 @@ pwsh -File <克隆目录>\scripts\set-ado-pat.ps1
 ```
 
 `-Check` 只报告不改动；正式那步装公共的部分（MCP 包 + 配置 + skill 链接 + 本机默认值），已完成的会跳过；最后一步从剪贴板取 PAT 并联网校验，成功会打 `[成功]`。写完重启客户端生效。
+
+> **PAT scope**：只读要 `Work Items (Read)`；测试完自动发评论（`scripts/ado-comment.mjs`）还要 `Work Items (Read & Write)`，否则发评论会报 `HTTP 403`。PAT 用个人账号的，企业账号在组织里是另一个身份，会报 `TF400813`。
 
 `install.ps1` 的其它开关：`-SkipSkillLink`（只配 MCP 不挂 skill）、`-SkipMcpInstall`（包已装好，跳过下载）、`-Domains`（默认 `core work work-items repositories`）、`-ConfigPath` / `-McpRoot`（换路径）。macOS / Linux 上挂载改用符号链接，脚本自己判断。
 

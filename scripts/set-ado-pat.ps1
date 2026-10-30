@@ -35,7 +35,7 @@ function Warn2($m) { Write-Host "  [注意] $m" -ForegroundColor Yellow }
 function Get-OrgFromConfig {
     if (-not (Test-Path -LiteralPath $ConfigPath)) { return $null }
     $m = [regex]::Match((Get-Content -Raw -LiteralPath $ConfigPath),
-        '(?ms)^\[mcp_servers\.azure-devops\].*?args\s*=\s*\[[^\]]*?"([^"]+)"\s*,\s*"--domains"')
+        '(?ms)^\[mcp_servers\.azure-devops\].*?args\s*=\s*\[[^\]]*?["'']([^"'']+)["'']\s*,\s*["'']--domains["'']')
     if ($m.Success) { return $m.Groups[1].Value }
     return $null
 }
@@ -83,13 +83,13 @@ else {
 $Token = Normalize-Token $Token
 if ([string]::IsNullOrWhiteSpace($Token)) { throw 'PAT 为空，未做任何修改。' }
 if ($Token.Length -lt 20) {
-    throw "读到的内容只有 $($Token.Length) 个字符，不像 PAT（Azure DevOps 的通常是 52 位）。重新复制一次再试。"
+    throw "读到的内容只有 $($Token.Length) 个字符，不像 PAT（Azure DevOps 的通常是 52 或 84 位）。重新复制一次再试。"
 }
 
 $preview = $Token.Substring(0, 4) + '…' + $Token.Substring($Token.Length - 4)
 Ok "读到 PAT（来源：$source）：长度 $($Token.Length)，$preview"
-if ($Token.Length -ne 52) {
-    Warn2 "Azure DevOps 的 PAT 通常是 52 位，当前 $($Token.Length) 位。核对上面的首尾字符，确认剪贴板里是 PAT 本身而不是别的东西。"
+if ($Token.Length -ne 52 -and $Token.Length -ne 84) {
+    Warn2 "Azure DevOps 的 PAT 通常是 52 或 84 位，当前 $($Token.Length) 位。核对上面的首尾字符，确认剪贴板里是 PAT 本身而不是别的东西。"
 }
 
 $already = $false

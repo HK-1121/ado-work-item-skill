@@ -30,8 +30,13 @@
  *   - `--dry-run` 只打印计划。
  */
 
+import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ANNOTATE = join(HERE, 'annotate.py');
 
 const argv = process.argv.slice(2);
 const flag = (name) => {
@@ -58,17 +63,46 @@ if (!id) {
 }
 const outDir = resolve(flag('out') ?? join('output', id));
 const items = Array.isArray(manifest.items) ? manifest.items : [];
-if (!items.length) {
-  console.error('manifest.items 是空的');
-  process.exit(2);
-}
 
 const dryRun = has('dry-run');
 const force = has('force');
+const noFigure = has('no-figure');
 const copied = [];
 const problems = [];
 
+// ---- 先看评论正文的结果：pass 不配图，fail/partial 只配失败截图 --------------
+let commentText = '';
+let resultWord = '';
+if (manifest.text) {
+  const textSrc = resolve(String(manifest.text));
+  if (existsSync(textSrc)) {
+    commentText = readFileSync(textSrc, 'utf8');
+    const m = commentText.match(/【sit test result】：\s*(\S+)/);
+    if (m) resultWord = m[1].trim();
+  }
+}
+const isPass = resultWord === 'pass';
+
+if (isPass && items.length) {
+  problems.push('pass 评论不配图：manifest.items 应为空，通过项不附截图');
+}
+if (!items.length && !isPass) {
+  problems.push('非 pass 评论没有图：至少要给「---×」条目配失败截图');
+}
+
 if (!dryRun) mkdirSync(outDir, { recursive: true });
+
+function stampFigure(dest, nn) {
+  if (noFigure || extname(dest).toLowerCase() !== '.png') return;
+  const py = process.env.PYTHON || 'python';
+  const run = spawnSync(py, [ANNOTATE, '--stamp', dest, '--out', dest, '--figure', String(Number(nn))], {
+    encoding: 'utf8',
+  });
+  if (run.status !== 0) {
+    const why = String(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 240);
+    problems.push(`第 ${nn} 张烤「图${Number(nn)}」水印失败：${why || 'python/Pillow 不可用'}`);
+  }
+}
 
 items.forEach((item, index) => {
   const nn = String(index + 1).padStart(2, '0');
@@ -92,6 +126,7 @@ items.forEach((item, index) => {
     return;
   }
   if (!dryRun) copyFileSync(src, dest);
+  if (!dryRun) stampFigure(dest, nn);
   copied.push({ nn, dest, covers, skipped: false });
 });
 
@@ -108,7 +143,7 @@ if (manifest.text) {
 // ---- 图号核对（正文里的 （图N） 必须和 comment-NN 对得上）--------------------
 // 规则见 SKILL.md「每条末尾标图号」：N = 粘贴顺序 = 文件名 comment-NN 的 NN。
 const figureReport = [];
-if (manifest.text) {
+if (manifest.text && !isPass) {
   const textSrc = resolve(String(manifest.text));
   if (existsSync(textSrc)) {
     const text = readFileSync(textSrc, 'utf8');
@@ -151,9 +186,11 @@ if (manifest.text) console.log(`   ${rel(join(outDir, 'comment.txt'))} —— �
 const covered = new Set(copied.flatMap((row) => row.covers));
 const maxItem = covered.size ? Math.max(...covered) : 0;
 const missing = [];
-for (let i = 1; i <= maxItem; i += 1) if (!covered.has(i)) missing.push(i);
-if (missing.length) problems.push(`评论条目 ${missing.join('、')} 没有配图`);
-if (copied.some((row) => !row.covers.length)) problems.push('有图没标 covers，贴进 ADO 时说不清证明哪条');
+if (!isPass) {
+  for (let i = 1; i <= maxItem; i += 1) if (!covered.has(i)) missing.push(i);
+  if (missing.length) problems.push(`评论条目 ${missing.join('、')} 没有配图`);
+  if (copied.some((row) => !row.covers.length)) problems.push('有图没标 covers，贴进 ADO 时说不清证明哪条');
+}
 
 if (figureReport.length) {
   console.log('\n图号核对：');

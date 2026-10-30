@@ -264,10 +264,11 @@ node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431 --dry-run  #
 - 图存 `output/<ID>/comment-NN-<含义>.png`，`NN` = 上传顺序 = 正文 `（图N）` 的 N；`pack-comment.mjs` 按顺序编号并自动烤水印。
 
 - **每张图必须带「图N」水印（硬规则）**：最终进评论的图，顶部都有一条白底标签带，红色徽标写死「图N」，N = `comment-NN` 的 NN。ADO 评论里的图是一张张分开显示的，读者看不到文件名；图上没有图号，就分不清哪张是图1、哪张证明哪条。
-  - 打包时自动烤：`pack-comment.mjs` 默认对每张 `comment-NN-*.png` 调 `annotate.py --stamp --figure N`，不用手工加；
+  - 发评论时自动烤：`ado-comment.mjs` 上传前把图复制到临时目录、调 `annotate.py --stamp` 烤好再传，`output/` 里的原图不动；
+  - 人工贴图（不走脚本）时，打包加 `--stamp`：`node scripts/pack-comment.mjs --manifest ... --stamp`；
   - 单独给已有图补烤：`python scripts/annotate.py --stamp <原图> --out <输出> --figure 3`；
   - 水印是接在图外侧的白底带，不覆盖原图像素；**不要用画图软件把「图3」P 在画面上**（会挡证据、字号也不统一）；
-  - 自查：打开 `comment-NN-*.png`，第一眼看到「图N」，且 N 与文件名 NN 一致；不一致 = 重烤。
+  - 自查：打开 `comment-NN-*.png` 或评论里的图，第一眼看到「图N」，且 N 与文件名 NN 一致；**只能有一条带子**，出现两条说明烤了两遍。
 - **图上要标出问题在哪**：红框 / 红圈把那一格框住，旁边加编号 ①② 和一句批注（`应为 2463 1644`、`少了 LDR No:`）
   - 编号跟图号对齐：图里 ① = 这张图第 1 个标注点，报告里写「图2 ①」；图号本身用 `（图N）`，N = `comment-NN` 的序号
   - 框、圈画在证据**外侧**（留 6–10 px），批注放空白处，别压住数字和文字——标注把证据盖住就白标了
@@ -312,8 +313,8 @@ node scripts/pack-comment.mjs --manifest tmp\pack-4489.json --dry-run  # 先看�
 `1..最大条目号` 有没有漏配图、有没有图没标 `covers`。漏了会直接列出来，发到 ADO 前先按提示补齐。
 
 **pass 评论不打包图**：manifest 里 `items` 留空，脚本只复制正文；非 pass 只放失败截图。
-脚本复制完会调 `annotate.py --stamp` 给每张图烤「图N」水印（N = 顺序号），这就是评论里
-`（图N）` 的来源；源图已经烤过、不想叠第二条带子时才加 `--no-figure`。
+水印统一在**发评论时**烤（`ado-comment.mjs` 上传前处理，原图不动）；只有人工贴图、不走脚本时，
+才给 pack 加 `--stamp` 直接烤进 `output/` 的图里。
 
 **PDF 的图不要用预览弹窗截图**：无头浏览器里弹窗内嵌的 PDF 是 `<iframe>`，截出来只有一片灰白
 （4489 复测时 `*-preview.png` 全空白，只能重跑）。先下载 PDF，再用

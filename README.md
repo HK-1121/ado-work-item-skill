@@ -72,7 +72,7 @@ node scripts/pack-comment.mjs --manifest tmp\pack-4489.json             # 落到
 ```
 
 manifest 就是 `{ id, text?, items: [{ src, name, covers: [条目号] }] }`，顺序即上传顺序；
-脚本会补零编号、调 `annotate.py --stamp` 给每张图烤「图N」水印、拦 0 字节源文件、列出「条目 N 没有配图」，并从 `text` 里读 `（图N）` 核对：引用不存在的图、图号跳号、条目没写图号都会报出来。**pass 评论 `items` 留空**（不打包图），非 pass 只放失败截图。
+脚本会补零编号、拦 0 字节源文件、列出「条目 N 没有配图」，并从 `text` 里读 `（图N）` 核对：引用不存在的图、图号跳号、条目没写图号都会报出来。**pass 评论 `items` 留空**（不打包图），非 pass 只放失败截图。**水印在发评论时由 `ado-comment.mjs` 自动烤**（临时副本，原图不动）；人工贴图才用 `pack-comment.mjs --stamp`。
 
 图上的红框、编号、批注和左右对比用 `scripts/annotate.py` 画（只依赖 Pillow，`python -m pip install pillow`）。对比图固定左旧右新、两边带标签，只拼两张：
 

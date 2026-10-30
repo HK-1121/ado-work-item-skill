@@ -7,7 +7,7 @@
  * 规则（和 SKILL.md 一致）：
  *   - pass：纯文字，正文里不许出现 `（图N）`，一张图都不上传；
  *   - fail / partial / blocked：只上传正文引用到的失败截图，按图号顺序附在评论末尾；
- *     每张图在 pack 阶段已经烤好「图N」水印（scripts/pack-comment.mjs 默认会烤）。
+ *     上传前自动烤「图N」水印（复制到临时目录处理，原图不动）。
  *
  * 用法（在工作区根目录跑）：
  *   node scripts/ado-comment.mjs --id 4613
@@ -20,9 +20,14 @@
  * 需要 Work Items **读写** 权限。
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ANNOTATE = path.join(HERE, 'annotate.py');
 
 const ORG = process.env.AZDO_ORG || 'LD-23175';
 const PROJECT = process.env.AZDO_PROJECT || 'LD-ECCMS';
@@ -154,29 +159,38 @@ async function main() {
 
   // ---------- 3. 上传失败截图（仅非 pass） -------------------------------------
   const uploaded = [];
-  if (result !== 'pass' && figures.length) {
-    for (const n of figures) {
-      const file = findFigureFile(outDir, n);
-      const bytes = readFileSync(file);
-      if (dryRun) {
-        uploaded.push({ n, file, url: '(dry-run)' });
-        continue;
+  const tmpDir = mkdtempSync(path.join(tmpdir(), 'ado-comment-'));
+  try {
+    if (result !== 'pass' && figures.length) {
+      for (const n of figures) {
+        const file = findFigureFile(outDir, n);
+        if (dryRun) {
+          // dry-run 也真的烤一遍，提前暴露 python/Pillow 或字体问题
+          stampCopy(file, n, tmpDir);
+          uploaded.push({ n, file, url: '(dry-run)' });
+          continue;
+        }
+        // 上传前统一烤「图N」水印：不论图是谁怎么生成的，进评论的图一定有图号
+        const stamped = stampCopy(file, n, tmpDir);
+        const bytes = readFileSync(stamped);
+        const fileName = path.basename(file);
+        const up = await api(
+          `https://dev.azure.com/${ORG}/${PROJECT}/_apis/wit/attachments?fileName=${encodeURIComponent(fileName)}&api-version=7.1`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: bytes,
+          },
+        );
+        const url =
+          up.url ||
+          `https://dev.azure.com/${ORG}/${PROJECT}/_apis/wit/attachments/${up.id}?fileName=${encodeURIComponent(fileName)}`;
+        uploaded.push({ n, file, url });
+        console.log(`已上传 图${n}：${fileName}（${(bytes.length / 1024).toFixed(0)} KB，已烤「图${n}」水印）`);
       }
-      const fileName = path.basename(file);
-      const up = await api(
-        `https://dev.azure.com/${ORG}/${PROJECT}/_apis/wit/attachments?fileName=${encodeURIComponent(fileName)}&api-version=7.1`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: bytes,
-        },
-      );
-      const url =
-        up.url ||
-        `https://dev.azure.com/${ORG}/${PROJECT}/_apis/wit/attachments/${up.id}?fileName=${encodeURIComponent(fileName)}`;
-      uploaded.push({ n, file, url });
-      console.log(`已上传 图${n}：${fileName}（${(bytes.length / 1024).toFixed(0)} KB）`);
     }
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
   }
 
   // ---------- 4. 组装 HTML 并发评论 --------------------------------------------
@@ -236,6 +250,20 @@ function findFigureFile(dir, n) {
   const prefix = `comment-${String(n).padStart(2, '0')}-`;
   const files = readdirSync(dir).filter((f) => f.startsWith(prefix) && /\.(png|jpe?g)$/i.test(f));
   return files.length ? path.join(dir, files.sort()[0]) : null;
+}
+
+// 复制一份到临时目录再烤水印，原图不动（报告里还要用原图）
+function stampCopy(file, n, dir) {
+  const out = path.join(dir, `comment-${String(n).padStart(2, '0')}.png`);
+  const py = process.env.PYTHON || 'python';
+  const run = spawnSync(py, [ANNOTATE, '--stamp', file, '--out', out, '--figure', String(n)], {
+    encoding: 'utf8',
+  });
+  if (run.status !== 0) {
+    const why = String(run.stderr || run.stdout || run.error?.message || '').trim().slice(0, 300);
+    throw new Error(`给图${n}烤水印失败（需要 python + Pillow）：${why || 'annotate.py 执行失败'}`);
+  }
+  return out;
 }
 
 function squash(s) {

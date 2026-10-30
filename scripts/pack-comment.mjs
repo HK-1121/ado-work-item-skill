@@ -66,7 +66,7 @@ const items = Array.isArray(manifest.items) ? manifest.items : [];
 
 const dryRun = has('dry-run');
 const force = has('force');
-const noFigure = has('no-figure');
+const wantStamp = has('stamp');
 const copied = [];
 const problems = [];
 
@@ -93,7 +93,7 @@ if (!items.length && !isPass) {
 if (!dryRun) mkdirSync(outDir, { recursive: true });
 
 function stampFigure(dest, nn) {
-  if (noFigure || extname(dest).toLowerCase() !== '.png') return;
+  if (!wantStamp || extname(dest).toLowerCase() !== '.png') return;
   const py = process.env.PYTHON || 'python';
   const run = spawnSync(py, [ANNOTATE, '--stamp', dest, '--out', dest, '--figure', String(Number(nn))], {
     encoding: 'utf8',
@@ -126,7 +126,7 @@ items.forEach((item, index) => {
     return;
   }
   if (!dryRun) copyFileSync(src, dest);
-  if (!dryRun) stampFigure(dest, nn);
+  if (!dryRun && wantStamp) stampFigure(dest, nn);
   copied.push({ nn, dest, covers, skipped: false });
 });
 

@@ -140,9 +140,11 @@ node scripts/ado-wit.mjs attachments <id>   # 打印「序号 文件名 字节�
 写完之后**直接跑脚本发**，不再等人复制粘贴：
 
 ```powershell
-node scripts/ado-comment.mjs --id 4431            # 发（pass 不带图，fail 自动传失败截图）
-node scripts/ado-comment.mjs --id 4431 --dry-run  # 只校验格式和查重，不发
+node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431            # 发（pass 不带图，fail 自动传失败截图）
+node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431 --dry-run  # 只校验格式和查重，不发
 ```
+
+（路径是 DSH 工作区的挂载点 `.agents\skills\ado-work-item`；别的客户端换成你挂 skill 的目录。一定要在工作区根目录跑，脚本默认到 `output/<ID>/comment.txt` 取正文。）
 
 正文里的图号规则、标记规则、用词规则都不变（见下），变的只是交付方式：**脚本发、发完给链接**。脚本细节见「测试完成后发评论」。
 
@@ -355,12 +357,12 @@ spec 长这样（坐标是**原图像素**，`box` 是 `[x, y, 宽, 高]`）：
 
 ## 测试完成后发评论（脚本代发）
 
-**测试一收尾就发，不要等人问。** 在工作区根目录跑（脚本在 skill 的 `scripts/` 下）：
+**测试一收尾就发，不要等人问。** 在工作区根目录跑（脚本在本 skill 的 `scripts/` 下，DSH 挂载点是 `.agents\skills\ado-work-item`）：
 
 ```powershell
-node scripts/ado-comment.mjs --id 4431              # 发
-node scripts/ado-comment.mjs --id 4431 --dry-run    # 只校验 + 查重
-node scripts/ado-comment.mjs --id 4431 --force      # 查重命中仍要重发
+node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431              # 发
+node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431 --dry-run    # 只校验 + 查重
+node .agents\skills\ado-work-item\scripts\ado-comment.mjs --id 4431 --force      # 查重命中仍要重发
 ```
 
 脚本按顺序做六件事：
@@ -391,7 +393,7 @@ node scripts/ado-comment.mjs --id 4431 --force      # 查重命中仍要重发
 
 发完**回读确认**：`node scripts/ado-wit.mjs comments <id>`，看新评论在不在、图数对不对、正文有没有被截断。
 
-### 怎么把结果交出去：给链接和路径，不往对话里贴图
+## 怎么把结果交出去：给链接和路径，不往对话里贴图
 
 **这是硬规则：交付回复里不出现 `![...](...)`，也不把截图内嵌到对话。**
 

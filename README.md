@@ -35,8 +35,9 @@ MCP 人人一份、每个客户端配一次，还得用**自己的** PAT；真�
 1. **发到工作项的评论**——正文落 `output/<ID>/comment.txt`（纯文本，不写 `comment.md`）：`【test time】` / `【sit test result】` / `【description】` 三个标签 + 编号条目 + **失败条目的图号 `（图N）`**，和 4353 的评论同一格式（标签改用 `【test time】`、值带时分）。写完跑脚本发，不用人粘贴：
 
 ```powershell
-node scripts/ado-comment.mjs --id 4431              # 发（自动查重、pass 不传图、fail 传失败截图）
-node scripts/ado-comment.mjs --id 4431 --dry-run    # 只校验，不发
+# 在工作区根目录跑，<克隆目录> 换成你放 skill 的路径
+node <克隆目录>\scripts\ado-comment.mjs --id 4431              # 发（自动查重、pass 不传图、fail 传失败截图）
+node <克隆目录>\scripts\ado-comment.mjs --id 4431 --dry-run    # 只校验，不发
 ```
 
 评论长这样（pass 时**不带任何图号、不传图**；fail 只给 `---×` 配图）：
